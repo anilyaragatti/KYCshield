@@ -1,0 +1,68 @@
+<% layout('/layout/boilerplate') -%>
+<main id="room-page" class="room-page" data-frame-interval-ms="<%= frameIntervalMs %>">
+  <header class="room-heading">
+    <div><p class="eyebrow">LIVE VERIFICATION</p><h1>Video call</h1></div>
+    <div class="room-meta"><span>Room <strong id="room-id"><%= roomId %></strong></span><span id="call-timer">00:00</span></div>
+  </header>
+  <div class="room-layout">
+    <section class="video-column">
+      <div class="remote-frame">
+        <video id="remote-video" autoplay playsinline></video>
+        <div class="call-overlay">
+          <span id="status-chip" class="status-chip">Waiting for customer</span>
+          <span id="latency-chip" class="info-chip">Latency -- ms</span>
+          <span id="camera-flag" class="info-chip camera-flag" hidden></span>
+        </div>
+        <div id="remote-placeholder" class="video-placeholder">Customer video will appear here</div>
+      </div>
+      <div class="video-footer">
+        <div class="local-preview"><video id="local-video" autoplay playsinline muted></video><span>You</span></div>
+        <div class="media-controls">
+          <p id="call-message" class="call-message" role="status" aria-live="polite">Requesting camera and microphone…</p>
+          <button id="retry-media-btn" class="button button-secondary" type="button" hidden>Retry camera and microphone</button>
+          <div class="analysis-controls">
+            <button id="analysis-toggle-btn" class="button button-primary" type="button">Start analysis</button>
+            <p id="analysis-status" class="analysis-status" role="status" aria-live="polite">Analysis is stopped</p>
+            <span id="mode-chip" class="analysis-chip mode-chip">Waiting for detector</span>
+            <span id="detector-chip" class="analysis-chip detector-chip detector-offline">Detector offline</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <aside class="card risk-card">
+      <p class="eyebrow">LIVE RISK REVIEW</p>
+      <div class="risk-gauge" role="img" aria-label="Risk score">
+        <svg viewBox="0 0 200 115" aria-hidden="true">
+          <path class="risk-gauge-track" d="M 20 100 A 80 80 0 0 1 180 100"></path>
+          <path id="risk-gauge-arc" class="risk-gauge-arc low" d="M 20 100 A 80 80 0 0 1 180 100"></path>
+        </svg>
+        <span id="risk-gauge-value">--</span>
+      </div>
+      <p id="risk-label" class="risk-label">Waiting for data</p>
+      <section class="reasons-section"><h2>Risk signals</h2><ul id="reasons-list"><li>Reasons will appear here</li></ul></section>
+      <p id="decision-message" class="decision-message" role="status" aria-live="polite"></p>
+      <div class="decision-actions">
+        <button id="approve-btn" class="button button-outline" type="button">Approve</button>
+        <button id="reject-btn" class="button button-primary" type="button">Reject</button>
+      </div>
+      <button id="end-call-btn" class="button button-danger" type="button">End call</button>
+      <section class="card challenge-card" aria-labelledby="challenge-heading">
+        <p class="eyebrow">LIVENESS</p>
+        <h2 id="challenge-heading">Liveness check</h2>
+        <p id="challenge-status" class="challenge-status" role="status" aria-live="polite">Idle</p>
+        <p id="challenge-instruction" class="challenge-current-instruction" hidden></p>
+        <button id="challenge-btn" class="button button-secondary challenge-send" type="button">Send liveness challenge</button>
+        <div class="challenge-result-actions">
+          <button id="challenge-pass-btn" class="button button-outline" type="button" disabled>Pass</button>
+          <button id="challenge-fail-btn" class="button button-primary" type="button" disabled>Fail</button>
+        </div>
+        <h3>Challenge history</h3>
+        <ul id="challenge-history" class="challenge-history"><li class="challenge-empty">No challenges yet.</li></ul>
+      </section>
+    </aside>
+  </div>
+</main>
+<script src="/socket.io/socket.io.js" defer></script>
+<script src="/js/webrtc.js" defer></script>
+<script src="/js/room.js" defer></script>
+<script src="/js/detection.js" defer></script>

@@ -1,0 +1,8 @@
+<% layout('/layout/boilerplate') -%>
+<section class="card error-card error-page">
+  <div class="error-icon" aria-hidden="true">!</div>
+  <p class="eyebrow">ERROR <%= statusCode %></p>
+  <h1><%= message %></h1>
+  <p class="intro">Return to the console or contact your administrator if the problem continues.</p>
+  <a class="button button-primary" href="/">Back to console</a>
+</section>

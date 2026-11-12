@@ -1,0 +1,47 @@
+<% layout('/layout/boilerplate') -%>
+<main class="join-main">
+  <section id="consent-card" class="card consent-card" hidden>
+    <div class="consent-icon" aria-hidden="true">✓</div>
+    <p class="eyebrow">SECURE VIDEO CHECK</p>
+    <h1>Video identity check</h1>
+    <p class="intro">Your bank invited you to a live verification call. It is analyzed in real time to detect deepfake fraud.</p>
+    <ul class="privacy-list">
+      <li>Allow camera and microphone</li>
+      <li>Invite and call details, including the verifier's decision, are stored</li>
+      <li>Raw audio and video are never saved</li>
+    </ul>
+    <button id="join-btn" class="button button-primary button-wide" type="button">I agree, join call</button>
+    <p class="countdown-label">Link expires in <strong id="expiry-timer">--:--</strong></p>
+  </section>
+  <section id="error-card" class="card error-card" role="alert" hidden>
+    <div class="error-icon" aria-hidden="true">!</div><h1 id="error-title">This invite is unavailable</h1><p id="error-message" class="intro">The link may have expired or already been used. Ask your bank for a new invite.</p>
+  </section>
+  <section id="customer-call" class="customer-call" hidden>
+    <div class="customer-video-frame">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="call-overlay"><span id="customer-status" class="status-chip">Waiting for verifier</span></div>
+    </div>
+    <div class="customer-call-tools">
+      <div class="local-preview"><video id="local-video" autoplay playsinline muted></video><span>You</span></div>
+      <p id="call-message" class="call-message" role="status" aria-live="polite">Connecting securely…</p>
+      <div class="camera-picker" hidden>
+        <label for="camera-select">Camera</label>
+        <select id="camera-select" aria-label="Choose camera"></select>
+      </div>
+      <button id="retry-media-btn" class="button button-secondary" type="button" hidden>Retry camera and microphone</button>
+      <p class="privacy-notice">This call is analyzed to detect fraud.</p>
+      <button id="leave-btn" class="button button-primary" type="button">Leave call</button>
+    </div>
+    <section id="challenge-overlay" class="challenge-overlay" aria-live="assertive" hidden>
+      <div class="challenge-overlay-card">
+        <p class="eyebrow">LIVE LIVENESS CHECK</p>
+        <p id="challenge-text" class="challenge-instruction"></p>
+        <p class="challenge-countdown">Time remaining <strong id="challenge-timer">--</strong></p>
+      </div>
+    </section>
+  </section>
+</main>
+<script src="/socket.io/socket.io.js" defer></script>
+<script src="/js/webrtc.js" defer></script>
+<script src="/js/virtualcam.js" defer></script>
+<script src="/js/join.js" defer></script>

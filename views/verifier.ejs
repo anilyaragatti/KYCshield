@@ -1,0 +1,28 @@
+<% layout('/layout/boilerplate') -%>
+<main class="dashboard">
+  <section class="card invite-card">
+    <p class="eyebrow">IDENTITY VERIFICATION</p>
+    <h1>Start a verification call</h1>
+    <p class="intro">Send a secure link to your customer to begin a video identity check.</p>
+    <form id="invite-form" novalidate>
+      <label for="contact-input">Customer email or phone</label>
+      <div class="input-row">
+        <input id="contact-input" name="contact" type="text" autocomplete="email" placeholder="name@example.com or +1 555 123 4567" required>
+        <button id="send-btn" class="button button-primary" type="submit">Send invite</button>
+      </div>
+      <p id="form-message" class="message" role="status" aria-live="polite"></p>
+    </form>
+    <div id="invite-result" class="invite-result" hidden>
+      <label for="invite-link">Share this secure link</label>
+      <div class="link-box"><a id="invite-link" href="#" target="_blank" rel="noopener"></a><button id="copy-btn" class="button button-secondary" type="button">Copy</button></div>
+      <a id="whatsapp-link" class="whatsapp-link" href="#" target="_blank" rel="noopener" hidden>Send via WhatsApp</a>
+      <p class="expiry-note">Expires in 15 minutes</p>
+      <a id="open-room-btn" class="button button-primary room-button" href="#">Open my room</a>
+    </div>
+  </section>
+  <aside class="card sessions-card">
+    <div class="section-heading"><div><p class="eyebrow">ACTIVITY</p><h2>Recent sessions</h2></div><span class="live-dot" aria-label="Live"></span></div>
+    <div id="sessions-list" class="sessions-list" aria-live="polite"><p class="empty-state">Loading sessions…</p></div>
+  </aside>
+</main>
+<script src="/js/verifier.js" defer></script>

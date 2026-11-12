@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#16233B">
+  <title><%= typeof title !== 'undefined' && title ? title : 'KYCShield' %> | KYCShield</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <%- include('../includes/navbar') %>
+  <main class="page-content"><%- body %></main>
+  <%- include('../includes/footer') %>
+</body>
+</html>
