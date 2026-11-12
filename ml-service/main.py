@@ -22,6 +22,12 @@ if DETECTOR_BACKEND not in {"mock", "hf"}:
 
 FACE_MODEL_ID = os.getenv("FACE_MODEL_ID", "").strip() or None
 AUDIO_MODEL_ID = os.getenv("AUDIO_MODEL_ID", "").strip() or None
+FACE_FAKE_LABEL = os.getenv("FACE_FAKE_LABEL", "").strip() or None
+AUDIO_FAKE_LABEL = os.getenv("AUDIO_FAKE_LABEL", "").strip() or None
+FACE_THRESHOLD = float(os.getenv("FACE_THRESHOLD", "0.5"))
+AUDIO_THRESHOLD = float(os.getenv("AUDIO_THRESHOLD", "0.5"))
+HF_DEVICE = os.getenv("HF_DEVICE", "auto").strip().lower()
+AUDIO_WINDOW_SEC = float(os.getenv("AUDIO_WINDOW_SEC", "2"))
 MAX_FRAME_BYTES = int(os.getenv("MAX_FRAME_BYTES", "2000000"))
 MAX_AUDIO_BYTES = int(os.getenv("MAX_AUDIO_BYTES", "1500000"))
 HOST = os.getenv("HOST", "127.0.0.1")
@@ -76,18 +82,40 @@ async def load_detector():
 
     from backends.hf import HuggingFaceDetector
 
-    detector = HuggingFaceDetector(FACE_MODEL_ID, AUDIO_MODEL_ID)
+    detector = HuggingFaceDetector(
+        FACE_MODEL_ID, AUDIO_MODEL_ID,
+        face_fake_label=FACE_FAKE_LABEL,
+        audio_fake_label=AUDIO_FAKE_LABEL,
+        face_threshold=FACE_THRESHOLD,
+        audio_threshold=AUDIO_THRESHOLD,
+        hf_device=HF_DEVICE,
+        audio_window_sec=AUDIO_WINDOW_SEC,
+    )
     await detector.load()
+
+
+def model_details():
+    if DETECTOR_BACKEND == "mock":
+        return {}
+    return detector.details() if detector is not None else {}
 
 
 @app.get("/health")
 async def health():
-    return {
+    result = {
         "status": "ok",
         "backend": DETECTOR_BACKEND,
         "face_model": FACE_MODEL_ID,
         "audio_model": AUDIO_MODEL_ID,
     }
+    if DETECTOR_BACKEND == "hf":
+        result.update(model_details())
+    return result
+
+
+@app.get("/models")
+async def models():
+    return {"backend": DETECTOR_BACKEND, **model_details()}
 
 
 async def read_multipart_file(request: Request, limit: int) -> bytes:
@@ -140,13 +168,23 @@ def make_result(score: float | None, latency_ms: float, note: str | None = None)
 async def run_detection(modality: str, data: bytes) -> dict[str, Any]:
     started = time.perf_counter()
     try:
-        score, note = await detector.detect(modality, data)
+        detection = await detector.detect(modality, data)
+        if isinstance(detection, dict):
+            score = detection.get("score")
+            note = detection.get("note")
+            raw_score = detection.get("raw_score")
+        else:  # Keep the existing mock detector response contract unchanged.
+            score, note = detection
+            raw_score = None
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except Exception as error:
         logger.exception("Detector inference failed for modality=%s", modality)
         raise HTTPException(status_code=500, detail="Detector inference failed.") from error
-    return make_result(score, (time.perf_counter() - started) * 1000, note)
+    result = make_result(score, (time.perf_counter() - started) * 1000, note)
+    if DETECTOR_BACKEND == "hf":
+        result["raw_score"] = raw_score
+    return result
 
 
 def validate_upload(modality: str, data: bytes):

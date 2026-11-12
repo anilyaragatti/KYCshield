@@ -1,5 +1,6 @@
 -r requirements.txt
 torch
 transformers
-opencv-python-headless
-soundfile
+opencv-python-headless<5soundfile
+scikit-learn
+scipy
