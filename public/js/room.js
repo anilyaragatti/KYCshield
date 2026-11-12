@@ -1,4 +1,5 @@
 const roomId = document.querySelector('#room-id').textContent.trim();
+const verifierToken = document.querySelector('#room-page').dataset.verifierToken;
 const statusChip = document.querySelector('#status-chip');
 const callMessage = document.querySelector('#call-message');
 const retryMediaButton = document.querySelector('#retry-media-btn');
@@ -99,7 +100,7 @@ async function connectRoom() {
   try {
     await call.startMedia();
     if (!socket.connected) socket.connect();
-    else socket.emit('join-room', { roomId, role: 'verifier' });
+    else socket.emit('join-room', { roomId, role: 'verifier', verifierToken });
   } catch (error) {
     showMediaError(error);
   }
@@ -109,7 +110,7 @@ socket.on('connect', async () => {
   if (manuallyEnded) return;
   try {
     await call.startMedia();
-    socket.emit('join-room', { roomId, role: 'verifier' });
+    socket.emit('join-room', { roomId, role: 'verifier', verifierToken });
   } catch (error) {
     showMediaError(error);
   }
@@ -147,6 +148,8 @@ socket.on('join-error', ({ reason }) => {
   const messages = {
     not_found: 'This room does not exist.',
     ended: 'This call has already ended.',
+    unauthorized: 'Verifier authorization failed. Reload the room and try again.',
+    rate_limited: 'Too many room join attempts. Wait a minute and try again.',
     server_error: 'The room could not be joined. Reload and try again.'
   };
   callMessage.textContent = messages[reason] || 'This room could not be joined.';

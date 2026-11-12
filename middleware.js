@@ -4,6 +4,34 @@ const { inviteSchema, decisionSchema, roomIdParamsSchema, feedbackSchema } = req
 
 let authWarningPrinted = false;
 
+function securityHeaders(_req, res, next) {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Permissions-Policy': 'camera=(self), microphone=(self), geolocation=()'
+  });
+  next();
+}
+
+function createJoinLimiter({ windowMs = 60_000, limit = 20 } = {}) {
+  const attempts = new Map();
+  return function allowJoinAttempt(key) {
+    const now = Date.now();
+    if (attempts.size > 1000) {
+      for (const [ip, entry] of attempts) if (entry.resetAt <= now) attempts.delete(ip);
+    }
+    const current = attempts.get(key);
+    if (!current || current.resetAt <= now) {
+      attempts.set(key, { count: 1, resetAt: now + windowMs });
+      return true;
+    }
+    if (current.count >= limit) return false;
+    current.count += 1;
+    return true;
+  };
+}
+
 function validate(schema, source, assignTo) {
   return function validateRequest(req, _res, next) {
     const { error, value } = schema.validate(req[source], { abortEarly: true, stripUnknown: true });
@@ -69,5 +97,7 @@ module.exports = {
   validateDecision: validate(decisionSchema, 'body', 'validatedBody'),
   validateRoomId: validate(roomIdParamsSchema, 'params', 'validatedParams'),
   validateFeedback: validate(feedbackSchema, 'body', 'validatedBody'),
-  basicAuth
+  basicAuth,
+  securityHeaders,
+  createJoinLimiter
 };

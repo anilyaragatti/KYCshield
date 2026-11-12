@@ -7,6 +7,7 @@ const joinButton = document.querySelector('#join-btn');
 const customerCall = document.querySelector('#customer-call');
 const callMessage = document.querySelector('#call-message');
 const customerStatus = document.querySelector('#customer-status');
+const reconnectingChip = document.querySelector('#reconnecting-chip');
 const retryMediaButton = document.querySelector('#retry-media-btn');
 const leaveButton = document.querySelector('#leave-btn');
 const cameraPicker = document.querySelector('.camera-picker');
@@ -185,6 +186,7 @@ function setupCall() {
     onConnectionChange: (state) => {
       if (state === 'connected') {
         customerStatus.textContent = 'Connected';
+        reconnectingChip.hidden = true;
         callMessage.textContent = 'Video call connected.';
       } else if (state === 'failed') {
         customerStatus.textContent = 'Connection issue';
@@ -223,10 +225,20 @@ function setupCall() {
     }
   });
   socket.on('peer-joined', ({ role }) => {
-    if (role === 'verifier') callMessage.textContent = 'Verifier joined. Connecting video…';
+    if (role === 'verifier') {
+      callMessage.textContent = 'Verifier joined. Connecting video…';
+      if (!reconnectingChip.hidden) customerStatus.textContent = 'Reconnecting';
+    }
+  });
+  socket.on('peer-reconnecting', ({ role }) => {
+    if (role !== 'verifier') return;
+    reconnectingChip.hidden = false;
+    customerStatus.textContent = 'Reconnecting';
+    callMessage.textContent = 'Your verifier is reconnecting. Please keep this page open.';
   });
   socket.on('peer-left', ({ role }) => {
     if (role !== 'verifier') return;
+    reconnectingChip.hidden = true;
     call.cleanup();
     customerStatus.textContent = 'Verifier left';
     callMessage.textContent = 'The verifier ended the call.';
@@ -235,7 +247,14 @@ function setupCall() {
   socket.on('challenge-closed', () => {
     try { hideChallenge(); } catch (_error) { /* call signaling remains active */ }
   });
-  socket.on('offer', (payload) => { call.handleOffer(payload).catch(showCallError); });
+  socket.on('offer', (payload) => {
+    try {
+      if (!reconnectingChip.hidden) call.resetPeerConnection();
+      call.handleOffer(payload).catch(showCallError);
+    } catch (error) {
+      showCallError(error);
+    }
+  });
   socket.on('answer', (payload) => { call.handleAnswer(payload).catch(showCallError); });
   socket.on('ice', (payload) => { call.addIceCandidate(payload).catch(showCallError); });
   socket.on('join-error', ({ reason }) => {
@@ -245,6 +264,7 @@ function setupCall() {
       expired: 'This invite has expired. Ask your bank for a new link.',
       used: 'This invite was already used in another browser. Ask your bank for a new invite.',
       invalid_token: 'This invite is invalid. Ask your bank for a new invite.',
+      rate_limited: 'Too many join attempts. Wait a minute, then reload and try again.',
       server_error: 'The call could not be joined. Reload and try again.'
     };
     call.cleanup();

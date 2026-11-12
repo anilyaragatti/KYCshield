@@ -84,7 +84,24 @@ DASHBOARD_USER=analyst
 DASHBOARD_PASS=replace-with-a-long-random-password
 ```
 
-If both are unset, these routes remain open for local development and the server prints a warning. Do not expose an unprotected dashboard to a public network.
+On localhost, the app can run without these credentials and prints a warning. If `PUBLIC_BASE_URL` is not a localhost URL, the server exits at startup unless both credentials are set. Configure credentials before using ngrok or any public URL.
+
+## Security
+
+Set these values in the root `.env` before exposing KYCShield:
+
+```dotenv
+DASHBOARD_USER=your-verifier-and-analyst-user
+DASHBOARD_PASS=use-a-long-unique-password
+VERIFIER_TOKEN_SECRET=use-a-long-random-secret
+VERIFIER_GRACE_MS=30000
+```
+
+The root page, verifier rooms, invite creation, recent-session API, decision API, and analyst routes require HTTP Basic authentication. Customer invite pages and invite validation remain public so recipients can join. Invite validation is limited to 60 requests per minute per IP; Socket.IO room joins are limited to 20 attempts per minute per IP. Static assets remain public.
+
+Each verifier room page receives a signed HMAC-SHA256 token scoped to its room and valid for 12 hours. The socket server checks that token before granting the verifier role. If `VERIFIER_TOKEN_SECRET` is blank, the server generates a random secret at startup and warns that verifier tokens will reset on restart. Set a stable secret when you deploy so active room pages do not become invalid after a restart.
+
+If the verifier socket briefly disconnects or its page refreshes, the customer's page stays open while the verifier slot is reserved for `VERIFIER_GRACE_MS` (30 seconds by default). Rejoining with a valid room token cancels the grace timer and starts a fresh WebRTC offer. Clicking **End call** ends the session immediately. Basic security headers are applied to all HTTP responses.
 
 The dashboard refreshes its statistics and paginated session list every 10 seconds. Open a row's **View** link for the score timeline, reason counts, liveness and virtual-camera results, and analyst feedback. Select **Download audit report** to stream a PDF. Reports with simulated detections include a MOCK warning banner. The feedback CSV is available from the dashboard header.
 
@@ -93,15 +110,17 @@ The room's **Approve** or **Reject** action reveals an analyst feedback card. Ch
 ## Test a call locally
 
 1. Start the local MongoDB service, then run `npm start`.
-2. Open `http://localhost:1009` in one browser tab and send an invite to a phone number so you can copy its link.
+2. Open `http://localhost:1009` in one browser tab. If credentials are configured, authenticate in the browser prompt. Send an invite to a phone number so you can copy its link.
 3. Open the customer invite link in a second tab in the same browser. In the verifier tab, select **Open my room**.
 4. In the customer tab, agree to join. Allow camera and microphone access in both tabs.
 5. Approve or reject the call from the verifier room. The decision is saved to the session.
+6. Refresh the verifier room while connected. The customer should see **Verifier reconnecting...** and remain on the call page; the verifier should rejoin and establish a fresh video connection within the grace period. Clicking **End call** should end it immediately.
 
 ## Test from a phone with ngrok
 
-1. Run `ngrok http 1009` while the app is running.
-2. Set `PUBLIC_BASE_URL` in `.env` to the HTTPS forwarding URL shown by ngrok, then restart the app and create a fresh invite.
-3. Open the invite link on the phone and allow camera and microphone access. Keep the verifier tab open on the computer.
+1. Set `DASHBOARD_USER`, `DASHBOARD_PASS`, and a stable random `VERIFIER_TOKEN_SECRET` in `.env`.
+2. Run `ngrok http 1009` while the app is running.
+3. Set `PUBLIC_BASE_URL` in `.env` to the HTTPS forwarding URL shown by ngrok, then restart the app and create a fresh invite.
+4. Open the invite link on the phone and allow camera and microphone access. Keep the authenticated verifier tab open on the computer.
 
 Ngrok can carry the Socket.IO signaling connection. Video and audio travel directly between browsers using WebRTC; this project configures the requested public STUN server and does not include a TURN relay, so some network combinations may not establish media.

@@ -246,6 +246,7 @@ textarea:focus { outline: none; border-color: var(--rust); box-shadow: 0 0 0 3px
 .view-session-link:hover { text-decoration: underline; }
 .analyst-feedback-card.feedback-saved { border-color: #B8DCC7; background: #F6FBF8; }
 [hidden] { display: none !important; }
+.reconnecting-chip { background: var(--navy-tint); color: var(--navy); }
 
 @media (max-width: 760px) {
   .topbar { min-height: 64px; padding: 10px 20px; }

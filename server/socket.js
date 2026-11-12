@@ -8,8 +8,13 @@ const { createRiskState, addScore, setVirtualCamera, setLatestChallenge, fuse } 
 const { isVirtualCamera } = require('../utils/virtualCameras');
 const { createChallenge } = require('../utils/challenges');
 const { recomputeSessionSummary } = require('../utils/sessionSummary');
+const { createJoinLimiter } = require('../middleware');
+const { verifyVerifierToken } = require('../utils/verifierToken');
 
 const MAX_MEDIA_BYTES = 300 * 1024;
+const VERIFIER_GRACE_MS = Number.isFinite(Number(process.env.VERIFIER_GRACE_MS)) && Number(process.env.VERIFIER_GRACE_MS) >= 0
+  ? Number(process.env.VERIFIER_GRACE_MS)
+  : 30_000;
 
 function initializeSockets(httpServer) {
   const io = new Server(httpServer, {
@@ -27,12 +32,15 @@ function initializeSockets(httpServer) {
     }
   });
   const rooms = new Map();
+  const allowJoinAttempt = createJoinLimiter({ windowMs: 60_000, limit: 20 });
 
   function getRoom(roomId) {
     let room = rooms.get(roomId);
     if (!room) {
       room = {
         verifierId: null,
+        verifierGraceTimer: null,
+        ending: false,
         customerId: null,
         customerJoinKey: null,
         flags: { virtualCamera: null },
@@ -62,6 +70,9 @@ function initializeSockets(httpServer) {
     if (!['verifier', 'customer'].includes(data.role)) {
       return sendJoinError(socket, 'invalid_role');
     }
+    if (data.role === 'verifier' && !verifyVerifierToken(data.verifierToken, data.roomId)) {
+      return sendJoinError(socket, 'unauthorized');
+    }
     if (socket.data.roomId) {
       if (socket.data.roomId === data.roomId && socket.data.role === data.role) return;
       await leaveRoom(socket);
@@ -72,6 +83,7 @@ function initializeSockets(httpServer) {
     if (session.endedAt) return sendJoinError(socket, 'ended');
 
     let room = rooms.get(data.roomId);
+    if (room?.ending) return sendJoinError(socket, 'ended');
     let joinKey;
     if (data.role === 'customer') {
       if (typeof data.token !== 'string' || !data.token) return sendJoinError(socket, 'invalid_token');
@@ -116,6 +128,11 @@ function initializeSockets(httpServer) {
     }
 
     room = room || getRoom(data.roomId);
+    if (room.ending) return sendJoinError(socket, 'ended');
+    if (data.role === 'verifier' && room.verifierGraceTimer) {
+      clearTimeout(room.verifierGraceTimer);
+      room.verifierGraceTimer = null;
+    }
     const slotKey = data.role === 'verifier' ? 'verifierId' : 'customerId';
     const existingSocketId = room[slotKey];
     if (existingSocketId && existingSocketId !== socket.id) {
@@ -159,6 +176,26 @@ function initializeSockets(httpServer) {
     }
   }
 
+  async function finishVerifierRoom(roomId, room) {
+    if (!room || room.ending) return;
+    room.ending = true;
+    if (room.verifierGraceTimer) clearTimeout(room.verifierGraceTimer);
+    room.verifierGraceTimer = null;
+    if (room.activeChallenge) await finishChallenge(roomId, room, 'timeout');
+    await Session.updateOne({ roomId, endedAt: null }, { $set: { endedAt: new Date() } }).catch(() => {});
+    await recomputeSessionSummary(roomId).catch(() => {});
+    if (room.customerId) {
+      const customer = io.sockets.sockets.get(room.customerId);
+      io.to(room.customerId).emit('peer-left', { role: 'verifier' });
+      if (customer) {
+        customer.data.roomId = null;
+        customer.data.role = null;
+        customer.leave(roomId);
+      }
+    }
+    if (rooms.get(roomId) === room) rooms.delete(roomId);
+  }
+
   async function leaveRoom(socket) {
     const { roomId, role } = socket.data;
     if (!roomId || !role) return;
@@ -168,22 +205,9 @@ function initializeSockets(httpServer) {
     socket.leave(roomId);
 
     if (role === 'verifier') {
-      if (room?.activeChallenge) await finishChallenge(roomId, room, 'timeout');
-      await Session.updateOne(
-        { roomId, endedAt: null },
-        { $set: { endedAt: new Date() } }
-      );
-      await recomputeSessionSummary(roomId).catch(() => {});
-      if (room?.customerId) {
-        const customer = io.sockets.sockets.get(room.customerId);
-        io.to(room.customerId).emit('peer-left', { role: 'verifier' });
-        if (customer) {
-          customer.data.roomId = null;
-          customer.data.role = null;
-          customer.leave(roomId);
-        }
-      }
-      rooms.delete(roomId);
+      if (room?.verifierId !== socket.id) return;
+      room.verifierId = null;
+      await finishVerifierRoom(roomId, room);
       return;
     }
 
@@ -192,6 +216,22 @@ function initializeSockets(httpServer) {
       if (room.verifierId) io.to(room.verifierId).emit('peer-left', { role: 'customer' });
       if (!room.verifierId && room.expiresAt && room.expiresAt <= new Date()) rooms.delete(roomId);
     }
+  }
+
+  async function handleDisconnect(socket) {
+    const { roomId, role } = socket.data;
+    if (role !== 'verifier' || !roomId) return leaveRoom(socket);
+    const room = rooms.get(roomId);
+    socket.data.roomId = null;
+    socket.data.role = null;
+    if (!room || room.verifierId !== socket.id) return;
+    room.verifierId = null;
+    if (room.verifierGraceTimer) clearTimeout(room.verifierGraceTimer);
+    if (room.customerId) io.to(room.customerId).emit('peer-reconnecting', { role: 'verifier', graceMs: VERIFIER_GRACE_MS });
+    room.verifierGraceTimer = setTimeout(() => {
+      finishVerifierRoom(roomId, room).catch(() => {});
+    }, VERIFIER_GRACE_MS);
+    if (typeof room.verifierGraceTimer.unref === 'function') room.verifierGraceTimer.unref();
   }
 
   function relay(socket, eventName, payload) {
@@ -411,6 +451,7 @@ function initializeSockets(httpServer) {
 
   io.on('connection', (socket) => {
     socket.on('join-room', (data) => {
+      if (!allowJoinAttempt(socket.handshake.address || 'unknown')) return sendJoinError(socket, 'rate_limited');
       joinRoom(socket, data).catch(() => sendJoinError(socket, 'server_error'));
     });
     socket.on('offer', (payload) => relay(socket, 'offer', payload));
@@ -422,7 +463,7 @@ function initializeSockets(httpServer) {
     socket.on('challenge-request', () => requestChallenge(socket));
     socket.on('challenge-result', (payload) => submitChallengeResult(socket, payload));
     socket.on('leave', () => { leaveRoom(socket).catch(() => {}); });
-    socket.on('disconnect', () => { leaveRoom(socket).catch(() => {}); });
+    socket.on('disconnect', () => { handleDisconnect(socket).catch(() => {}); });
   });
 
   return io;

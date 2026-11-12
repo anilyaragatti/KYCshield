@@ -1,5 +1,5 @@
 <% layout('/layout/boilerplate') -%>
-<main id="room-page" class="room-page" data-frame-interval-ms="<%= frameIntervalMs %>">
+<main id="room-page" class="room-page" data-frame-interval-ms="<%= frameIntervalMs %>" data-verifier-token="<%= verifierToken %>">
   <header class="room-heading">
     <div><p class="eyebrow">LIVE VERIFICATION</p><h1>Video call</h1></div>
     <div class="room-meta"><span>Room <strong id="room-id"><%= roomId %></strong></span><span id="call-timer">00:00</span></div>

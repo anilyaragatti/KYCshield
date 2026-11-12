@@ -63,6 +63,21 @@ window.KYCWebRTC = (() => {
       socket = nextSocket;
     }
 
+    function resetPeerConnection() {
+      if (peerConnection) {
+        peerConnection.onicecandidate = null;
+        peerConnection.ontrack = null;
+        peerConnection.onconnectionstatechange = null;
+        peerConnection.close();
+        peerConnection = null;
+      }
+      remoteVideo.srcObject = null;
+      pendingCandidates = [];
+      const connection = createPeerConnection();
+      if (localStream) localStream.getTracks().forEach((track) => connection.addTrack(track, localStream));
+      return connection;
+    }
+
     async function replaceVideoTrack(newTrack) {
       if (!newTrack || newTrack.kind !== 'video') throw new Error('A video track is required to switch cameras.');
       if (!localStream) throw new Error('Start the camera before switching devices.');
@@ -171,6 +186,7 @@ window.KYCWebRTC = (() => {
       setSocket,
       replaceVideoTrack,
       getVideoTrack: () => localStream?.getVideoTracks()[0] || null,
+      resetPeerConnection,
       createOffer,
       handleOffer,
       handleAnswer,

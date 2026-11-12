@@ -6,9 +6,9 @@ const sessionController = require('../controllers/sessions');
 const router = express.Router();
 
 router.route('/')
-  .get(wrapAsync(sessionController.index));
+  .get(basicAuth, wrapAsync(sessionController.index));
 router.route('/:roomId/decision')
-  .post(validateRoomId, validateDecision, wrapAsync(sessionController.updateDecision));
+  .post(basicAuth, validateRoomId, validateDecision, wrapAsync(sessionController.updateDecision));
 router.route('/:roomId/feedback')
   .post(basicAuth, validateRoomId, validateFeedback, wrapAsync(sessionController.saveFeedback));
 router.route('/:roomId/report.pdf')
