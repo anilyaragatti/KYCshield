@@ -16,7 +16,15 @@ const sessionSchema = new mongoose.Schema({
     text: { type: String, default: undefined },
     result: { type: String, enum: ['pass', 'fail', 'timeout'], required: true },
     at: { type: Date, required: true }
-  }]
+  }],
+  summary: {
+    peakRisk: { type: Number, default: null },
+    avgRisk: { type: Number, default: null },
+    finalLabel: { type: String, default: 'Waiting for data' },
+    scoreCount: { type: Number, default: 0 },
+    mockUsed: { type: Boolean, default: false },
+    durationSec: { type: Number, default: 0 }
+  }
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 module.exports = mongoose.model('Session', sessionSchema);

@@ -1,5 +1,5 @@
 const express = require('express');
-const { validateDecision, validateRoomId } = require('../middleware');
+const { basicAuth, validateDecision, validateFeedback, validateRoomId } = require('../middleware');
 const wrapAsync = require('../utils/wrapAsync');
 const sessionController = require('../controllers/sessions');
 
@@ -9,5 +9,9 @@ router.route('/')
   .get(wrapAsync(sessionController.index));
 router.route('/:roomId/decision')
   .post(validateRoomId, validateDecision, wrapAsync(sessionController.updateDecision));
+router.route('/:roomId/feedback')
+  .post(basicAuth, validateRoomId, validateFeedback, wrapAsync(sessionController.saveFeedback));
+router.route('/:roomId/report.pdf')
+  .get(basicAuth, validateRoomId, wrapAsync(sessionController.reportPdf));
 
 module.exports = router;

@@ -1,0 +1,45 @@
+<% layout('/layout/boilerplate') -%>
+<main id="session-page" class="analyst-page session-page" data-room-id="<%= roomId %>">
+  <header class="analyst-heading session-heading">
+    <div><p class="eyebrow">SESSION REVIEW</p><h1>Verification session</h1><p class="session-id">Room <strong id="session-room-id"><%= roomId %></strong></p></div>
+    <a id="download-report-btn" class="button button-primary" href="/api/sessions/<%= encodeURIComponent(roomId) %>/report.pdf">Download audit report</a>
+  </header>
+  <p id="session-message" class="analyst-message" role="status" aria-live="polite">Loading session…</p>
+  <section class="session-summary-tiles">
+    <article class="card stat-tile"><span>Peak risk</span><strong id="detail-peak-risk">--</strong></article>
+    <article class="card stat-tile"><span>Average risk</span><strong id="detail-average-risk">--</strong></article>
+    <article class="card stat-tile"><span>Final label</span><strong id="detail-final-label">--</strong></article>
+    <article class="card stat-tile"><span>Duration</span><strong id="detail-duration">--</strong></article>
+    <article class="card stat-tile"><span>Scores</span><strong id="detail-score-count">--</strong></article>
+    <article class="card stat-tile"><span>Decision</span><strong id="detail-decision">--</strong></article>
+  </section>
+  <div class="session-detail-grid">
+    <section class="card detail-card timeline-card">
+      <p class="eyebrow">RISK HISTORY</p><h2>Session timeline</h2>
+      <div class="timeline-wrap">
+        <svg id="session-timeline" viewBox="0 0 800 300" role="img" aria-label="Risk score timeline">
+          <g class="timeline-grid"><line x1="52" y1="24" x2="52" y2="256"></line><line x1="52" y1="256" x2="784" y2="256"></line></g>
+          <g class="timeline-thresholds"><line x1="52" y1="174.8" x2="784" y2="174.8"></line><line x1="52" y1="105.2" x2="784" y2="105.2"></line></g>
+          <path id="timeline-area" class="timeline-area" d=""></path>
+          <path id="timeline-line" class="timeline-line" d=""></path>
+          <g id="timeline-points"></g>
+          <g class="timeline-axis-labels"><text x="12" y="29">100</text><text x="23" y="141">50</text><text x="31" y="260">0</text><text x="18" y="178">35</text><text x="18" y="109">65</text></g>
+        </svg>
+      </div>
+      <p id="timeline-empty" class="empty-state" hidden>No risk scores were recorded for this session.</p>
+    </section>
+    <aside class="session-side-column">
+      <section class="card detail-card"><p class="eyebrow">SIGNALS</p><h2>Top reasons</h2><ul id="session-reasons" class="detail-list"><li>Loading…</li></ul></section>
+      <section class="card detail-card"><p class="eyebrow">LIVENESS</p><h2>Challenges</h2><ul id="session-challenges" class="detail-list"><li>No challenges recorded.</li></ul></section>
+      <section class="card detail-card"><p class="eyebrow">DEVICE CHECK</p><h2>Virtual camera</h2><p id="session-camera-result" class="detail-value">Not detected</p><p id="session-camera-time" class="detail-muted"></p></section>
+      <section class="card detail-card"><p class="eyebrow">ANALYST</p><h2>Feedback</h2>
+        <div id="existing-feedback" class="existing-feedback" hidden></div>
+        <label class="feedback-label" for="feedback-note">Optional note</label>
+        <textarea id="feedback-note" maxlength="300" rows="3" placeholder="Add context for future model retraining"></textarea>
+        <div class="feedback-actions"><button id="feedback-fraud-btn" class="button button-primary" type="button">Mark fraud</button><button id="feedback-false-btn" class="button button-outline" type="button">False alarm</button></div>
+        <p id="feedback-message" class="analyst-message" role="status" aria-live="polite">Feedback is stored for future model retraining.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+<script src="/js/session.js" defer></script>

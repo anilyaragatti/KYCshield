@@ -15,5 +15,9 @@ const decisionSchema = Joi.object({
 const roomIdParamsSchema = Joi.object({
   roomId: Joi.string().hex().length(12).required()
 });
+const feedbackSchema = Joi.object({
+  verdict: Joi.string().valid('fraud', 'false_alarm').required(),
+  note: Joi.string().trim().max(300).allow('').default('')
+});
 
-module.exports = { inviteSchema, decisionSchema, roomIdParamsSchema };
+module.exports = { inviteSchema, decisionSchema, roomIdParamsSchema, feedbackSchema };

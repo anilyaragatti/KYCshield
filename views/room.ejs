@@ -45,6 +45,18 @@
         <button id="approve-btn" class="button button-outline" type="button">Approve</button>
         <button id="reject-btn" class="button button-primary" type="button">Reject</button>
       </div>
+      <section id="analyst-feedback-card" class="analyst-feedback-card" hidden>
+        <p class="eyebrow">ANALYST FEEDBACK</p>
+        <h2>Help improve future reviews</h2>
+        <label for="feedback-note">Optional note</label>
+        <textarea id="feedback-note" maxlength="300" rows="3" placeholder="Add context (300 characters max)"></textarea>
+        <div class="feedback-actions">
+          <button id="feedback-fraud-btn" class="button button-primary" type="button">Mark fraud</button>
+          <button id="feedback-false-btn" class="button button-outline" type="button">False alarm</button>
+        </div>
+        <p id="feedback-message" class="analyst-message" role="status" aria-live="polite"></p>
+        <a id="view-session-link" class="view-session-link" href="/dashboard/sessions/<%= encodeURIComponent(roomId) %>">View session</a>
+      </section>
       <button id="end-call-btn" class="button button-danger" type="button">End call</button>
       <section class="card challenge-card" aria-labelledby="challenge-heading">
         <p class="eyebrow">LIVENESS</p>

@@ -8,6 +8,7 @@ const ExpressError = require('./utils/ExpressError');
 const inviteRoutes = require('./routes/invites');
 const pageRoutes = require('./routes/pages');
 const sessionRoutes = require('./routes/sessions');
+const dashboardRoutes = require('./routes/dashboard');
 const { initializeSockets } = require('./server/socket');
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', pageRoutes);
 app.use('/api/invites', inviteRoutes);
 app.use('/api/sessions', sessionRoutes);
+app.use('/', dashboardRoutes);
 
 app.use((req, _res, next) => next(new ExpressError(404, 'Page not found.')));
 app.use((error, req, res, _next) => {

@@ -70,6 +70,25 @@ New detector requests will then return high mock scores. Restore the default sce
 - `POST /api/sessions/:roomId/decision` saves an `approved` or `rejected` decision.
 - `GET /join/:token` renders the public consent page.
 - `GET /room/:roomId` renders the verifier's live call room.
+- `GET /dashboard` opens the analyst dashboard.
+- `GET /dashboard/sessions/:roomId` opens a session review.
+- `GET /api/sessions/:roomId/report.pdf` downloads a PDF audit report.
+- `GET /api/dashboard/feedback.csv` downloads labeled-session feedback for a future retraining queue.
+
+## Analyst dashboard and audit reports
+
+After starting the Node server, open <http://localhost:1009/dashboard>. Set `DASHBOARD_USER` and `DASHBOARD_PASS` in the root `.env` and restart the server to require HTTP Basic authentication for analyst pages, dashboard APIs, analyst feedback, and PDF reports. For example, replace the placeholders below with your own credentials:
+
+```dotenv
+DASHBOARD_USER=analyst
+DASHBOARD_PASS=replace-with-a-long-random-password
+```
+
+If both are unset, these routes remain open for local development and the server prints a warning. Do not expose an unprotected dashboard to a public network.
+
+The dashboard refreshes its statistics and paginated session list every 10 seconds. Open a row's **View** link for the score timeline, reason counts, liveness and virtual-camera results, and analyst feedback. Select **Download audit report** to stream a PDF. Reports with simulated detections include a MOCK warning banner. The feedback CSV is available from the dashboard header.
+
+The room's **Approve** or **Reject** action reveals an analyst feedback card. Choose **Mark fraud** or **False alarm**, optionally add a note up to 300 characters, and save. Feedback is upserted by room and stores the latest risk and label at feedback time. Session summaries are recomputed from that room's Score documents when a decision is saved, the call ends, or later scores are stored.
 
 ## Test a call locally
 

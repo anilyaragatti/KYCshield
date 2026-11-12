@@ -22,6 +22,11 @@ const decisionMessage = document.querySelector('#decision-message');
 const approveButton = document.querySelector('#approve-btn');
 const rejectButton = document.querySelector('#reject-btn');
 const endCallButton = document.querySelector('#end-call-btn');
+const feedbackCard = document.querySelector('#analyst-feedback-card');
+const feedbackFraudButton = document.querySelector('#feedback-fraud-btn');
+const feedbackFalseButton = document.querySelector('#feedback-false-btn');
+const feedbackNote = document.querySelector('#feedback-note');
+const feedbackMessage = document.querySelector('#feedback-message');
 const remoteVideo = document.querySelector('#remote-video');
 const localVideo = document.querySelector('#local-video');
 
@@ -430,11 +435,35 @@ async function saveDecision(decision) {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Decision could not be saved.');
     decisionMessage.textContent = `Decision saved: ${result.decision}.`;
+    feedbackCard.hidden = false;
+    feedbackMessage.textContent = 'Feedback is stored for future model retraining.';
   } catch (error) {
     decisionMessage.textContent = error.message || 'Decision could not be saved. Try again.';
   } finally {
     approveButton.disabled = false;
     rejectButton.disabled = false;
+  }
+}
+
+async function saveFeedback(verdict) {
+  feedbackFraudButton.disabled = true;
+  feedbackFalseButton.disabled = true;
+  feedbackMessage.textContent = 'Saving feedback…';
+  try {
+    const response = await fetch(`/api/sessions/${encodeURIComponent(roomId)}/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ verdict, note: feedbackNote.value })
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || result.detail || 'Feedback could not be saved.');
+    feedbackMessage.textContent = 'Feedback saved. It is stored for future model retraining.';
+    feedbackCard.classList.add('feedback-saved');
+  } catch (error) {
+    feedbackMessage.textContent = error.message || 'Feedback could not be saved. Try again.';
+  } finally {
+    feedbackFraudButton.disabled = false;
+    feedbackFalseButton.disabled = false;
   }
 }
 
@@ -455,6 +484,8 @@ function endCall() {
 
 approveButton.addEventListener('click', () => saveDecision('approved'));
 rejectButton.addEventListener('click', () => saveDecision('rejected'));
+feedbackFraudButton.addEventListener('click', () => saveFeedback('fraud'));
+feedbackFalseButton.addEventListener('click', () => saveFeedback('false_alarm'));
 endCallButton.addEventListener('click', endCall);
 retryMediaButton.addEventListener('click', connectRoom);
 

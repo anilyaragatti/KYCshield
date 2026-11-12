@@ -1,0 +1,38 @@
+<% layout('/layout/boilerplate') -%>
+<main class="analyst-page dashboard-page">
+  <header class="analyst-heading">
+    <div><p class="eyebrow">ANALYST WORKSPACE</p><h1>Session dashboard</h1><p class="intro">Review verification outcomes, risk signals, and analyst feedback.</p></div>
+    <a class="button button-secondary" href="/api/dashboard/feedback.csv">Download feedback CSV</a>
+  </header>
+  <section id="stats-tiles" class="stats-tiles" aria-label="Session statistics">
+    <article class="card stat-tile"><span>Total sessions</span><strong id="stat-total">--</strong></article>
+    <article class="card stat-tile"><span>High risk</span><strong id="stat-high-risk">--</strong></article>
+    <article class="card stat-tile"><span>Rejected</span><strong id="stat-rejected">--</strong></article>
+    <article class="card stat-tile"><span>Avg peak risk</span><strong id="stat-average-risk">--</strong></article>
+  </section>
+  <section class="card analyst-table-card">
+    <div class="analyst-toolbar">
+      <div><p class="eyebrow">VERIFICATION RECORDS</p><h2>Sessions</h2></div>
+      <div class="dashboard-filters">
+        <label for="filter-label">Risk label
+          <select id="filter-label"><option value="all">All</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select>
+        </label>
+        <label for="filter-decision">Decision
+          <select id="filter-decision"><option value="all">All</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="pending">Pending</option></select>
+        </label>
+      </div>
+    </div>
+    <p id="dashboard-message" class="analyst-message" role="status" aria-live="polite"></p>
+    <div class="table-scroll">
+      <table id="sessions-table" class="sessions-table">
+        <thead><tr><th>Session</th><th>Started</th><th>Duration</th><th>Peak risk</th><th>Virtual camera</th><th>Liveness</th><th>Decision</th><th>Feedback</th><th>Review</th></tr></thead>
+        <tbody id="sessions-table-body"><tr><td colspan="9" class="empty-table">Loading sessions…</td></tr></tbody>
+      </table>
+    </div>
+    <footer class="table-pagination">
+      <span id="page-indicator">Page 1</span>
+      <div><button id="previous-page-btn" class="button button-secondary" type="button" disabled>Previous</button><button id="next-page-btn" class="button button-secondary" type="button" disabled>Next</button></div>
+    </footer>
+  </section>
+</main>
+<script src="/js/dashboard.js" defer></script>

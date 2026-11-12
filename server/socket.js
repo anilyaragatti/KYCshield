@@ -7,6 +7,7 @@ const { callFrame, callAudio } = require('../utils/mlClient');
 const { createRiskState, addScore, setVirtualCamera, setLatestChallenge, fuse } = require('../utils/risk');
 const { isVirtualCamera } = require('../utils/virtualCameras');
 const { createChallenge } = require('../utils/challenges');
+const { recomputeSessionSummary } = require('../utils/sessionSummary');
 
 const MAX_MEDIA_BYTES = 300 * 1024;
 
@@ -172,6 +173,7 @@ function initializeSockets(httpServer) {
         { roomId, endedAt: null },
         { $set: { endedAt: new Date() } }
       );
+      await recomputeSessionSummary(roomId).catch(() => {});
       if (room?.customerId) {
         const customer = io.sockets.sockets.get(room.customerId);
         io.to(room.customerId).emit('peer-left', { role: 'verifier' });
@@ -389,7 +391,12 @@ function initializeSockets(httpServer) {
           reasons: combined.reasons.map((item) => item.text),
           backend: result.backend
         });
-        await scoreDocument.save().catch(() => {});
+        try {
+          await scoreDocument.save();
+          await recomputeSessionSummary(roomId);
+        } catch (_error) {
+          // A summary failure must not stop the live call.
+        }
       }
     } catch (error) {
       const currentRoom = rooms.get(roomId);
