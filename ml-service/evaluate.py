@@ -84,7 +84,7 @@ def media_samples(real_dir, fake_dir, modality, window_sec):
 
 def metric_summary(rows, threshold):
     usable = [row for row in rows if row["raw_score"] is not None]
-    y_true = np.array([row["truth"] for row in usable], dtype=int)
+    y_true = np.array([1 if row["truth"] == "fake" else 0 for row in usable], dtype=int)
     raw = np.array([row["raw_score"] for row in usable], dtype=float)
     real = raw[y_true == 0]
     fake = raw[y_true == 1]
@@ -96,8 +96,12 @@ def metric_summary(rows, threshold):
         fnr = 1 - tpr
         eer_index = int(np.argmin(np.abs(fpr - fnr)))
         eer = float((fpr[eer_index] + fnr[eer_index]) / 2)
-        youden_index = int(np.argmax(tpr - fpr))
-        youden = float(thresholds[youden_index])
+        youden_scores = tpr - fpr
+        finite_indices = np.flatnonzero(np.isfinite(thresholds))
+        if finite_indices.size:
+            finite_best = finite_indices[int(np.argmax(youden_scores[finite_indices]))]
+            if youden_scores[finite_best] > 0:
+                youden = float(thresholds[finite_best])
     latencies = [row["latency_ms"] for row in rows]
     def percentile(values, value):
         return float(np.percentile(values, value)) if values else None
@@ -188,7 +192,12 @@ async def main():
         print(f"Accuracy at configured raw threshold {threshold:g}: {fmt(stats['accuracy'])}")
         print(f"ROC AUC={fmt(stats['auc'])}; EER={fmt(stats['eer'])}")
         suggestion = "FACE_THRESHOLD" if modality == "face" else "AUDIO_THRESHOLD"
-        print(f"Youden-J threshold: {fmt(stats['youden'])}; set {suggestion}={fmt(stats['youden'])}")
+        if stats["youden"] is None:
+            print("Youden-J threshold: no useful threshold found; verify class labels and sample data before calibrating.")
+        else:
+            print(f"Youden-J threshold: {fmt(stats['youden'])}; set {suggestion}={fmt(stats['youden'])}")
+        if stats["auc"] is not None and stats["auc"] < 0.5:
+            print("Warning: scores rank the labeled classes in reverse on this sample set; check the fake-label mapping and ground-truth labels.")
         print(f"Latency ms/sample: mean={fmt(stats['latency_mean'], 2)}, p50={fmt(stats['latency_p50'], 2)}, p95={fmt(stats['latency_p95'], 2)}")
 
     output_dir = Path(args.out)
@@ -206,6 +215,9 @@ async def main():
     lines = ["# KYCShield model evaluation", "", f"Device: {detector.device_name}", "", "Lower calibration starts at the configured raw threshold and maps it to score 0.5. Use the Youden-J raw threshold suggestion in `.env`, then restart the service.", "", "| Modality | Real n | Fake n | Mean real | Mean fake | Accuracy | ROC AUC | EER | Youden-J threshold | Latency mean / p50 / p95 (ms) |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for item in summaries:
         lines.append(f"| {item['modality']} | {item['n_real']} | {item['n_fake']} | {fmt(item['mean_real'])} | {fmt(item['mean_fake'])} | {fmt(item['accuracy'])} | {fmt(item['auc'])} | {fmt(item['eer'])} | {fmt(item['youden'])} | {fmt(item['latency_mean'], 2)} / {fmt(item['latency_p50'], 2)} / {fmt(item['latency_p95'], 2)} |")
+        if item["auc"] is not None and item["auc"] < 0.5:
+            lines.append("")
+            lines.append(f"Warning for {item['modality']}: scores rank the labeled classes in reverse on this sample set; check label mapping and sample labels.")
         if item["n_real"] < 5 or item["n_fake"] < 5:
             lines.append("")
             lines.append(f"Warning for {item['modality']}: too few samples to trust these numbers; one class has fewer than 5 samples.")
