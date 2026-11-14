@@ -96,6 +96,10 @@ function fuse(state, now = Date.now()) {
     else if (adjustedProbability < RISK_HIGH) label = 'Medium';
     else label = 'High';
   }
+  if (virtualCameraFlagged && liveness === 'fail') label = 'High';
+  else if (virtualCameraFlagged || liveness === 'fail') {
+    if (label === 'Low' || label === 'Waiting for data') label = 'Medium';
+  }
 
   const reasons = [];
   if (audioFresh) {

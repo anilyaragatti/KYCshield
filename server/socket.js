@@ -48,9 +48,11 @@ function initializeSockets(httpServer) {
         lastChallengeAt: 0,
         detection: {
           inFlight: { frame: false, audio: false },
+          failures: { frame: 0, audio: 0 },
           risk: createRiskState(),
           lastSavedAt: 0,
           detectorOnline: null,
+          detectorReason: null,
           backend: null
         }
       };
@@ -154,6 +156,12 @@ function initializeSockets(httpServer) {
     socket.data.role = data.role;
     socket.join(data.roomId);
     socket.emit('joined', data.role === 'customer' ? { role: data.role, joinKey } : { role: data.role });
+    if (data.role === 'verifier' && room.detection.detectorOnline !== null) {
+      const status = room.detection.detectorOnline
+        ? { ok: true }
+        : { ok: false, reason: room.detection.detectorReason };
+      socket.emit('detector-status', status);
+    }
 
     if (room.verifierId && room.customerId) {
       io.to(room.verifierId).emit('peer-joined', { role: 'customer' });
@@ -253,9 +261,20 @@ function initializeSockets(httpServer) {
   function detectorStatus(room, ok, reason) {
     if (room.detection.detectorOnline === ok) return;
     room.detection.detectorOnline = ok;
+    room.detection.detectorReason = ok ? null : reason;
     if (!room.verifierId) return;
     const verifier = io.sockets.sockets.get(room.verifierId);
     if (verifier) verifier.emit('detector-status', ok ? { ok: true } : { ok: false, reason });
+  }
+
+  function detectorFailure(error) {
+    if (error?.failureType === 'timeout' || error?.code === 'timeout') {
+      return { type: 'timeout', reason: 'timeout' };
+    }
+    if (Number.isInteger(error?.httpStatus)) {
+      return { type: `HTTP ${error.httpStatus}`, reason: `http_${error.httpStatus}` };
+    }
+    return { type: 'connection', reason: 'connection' };
   }
 
   function emitRiskUpdate(room, clientTs = null) {
@@ -394,17 +413,33 @@ function initializeSockets(httpServer) {
     const media = toBuffer(payload.data);
     if (!media || media.length === 0) return;
     if (media.length > MAX_MEDIA_BYTES) {
-      detectorStatus(room, false, 'payload_too_large');
       return;
     }
     if (room.detection.inFlight[modality]) return;
 
     room.detection.inFlight[modality] = true;
+    const requestStartedAt = Date.now();
     try {
-      const result = modality === 'frame' ? await callFrame(media) : await callAudio(media);
+      let result;
+      try {
+        result = modality === 'frame' ? await callFrame(media) : await callAudio(media);
+      } catch (error) {
+        if (rooms.get(roomId) === room) {
+          room.detection.failures[modality] += 1;
+          const failure = detectorFailure(error);
+          const elapsedMs = Date.now() - requestStartedAt;
+          console.warn(`Detector failure modality=${modality} type=${failure.type} elapsed_ms=${elapsedMs}`);
+          if (room.detection.failures[modality] >= 3) detectorStatus(room, false, failure.reason);
+        }
+        return;
+      }
+
       const currentRoom = rooms.get(roomId);
+      if (currentRoom === room) {
+        room.detection.failures[modality] = 0;
+        detectorStatus(room, true);
+      }
       if (currentRoom !== room || room.verifierId !== socket.id || !socket.connected) return;
-      detectorStatus(room, true);
       room.detection.backend = result.backend;
       const receivedAt = Date.now();
       const signal = modality === 'frame' ? 'face' : 'audio';
@@ -438,12 +473,8 @@ function initializeSockets(httpServer) {
           // A summary failure must not stop the live call.
         }
       }
-    } catch (error) {
-      const currentRoom = rooms.get(roomId);
-      if (currentRoom === room && room.verifierId === socket.id && socket.connected) {
-        const reason = error.code === 'timeout' ? 'timeout' : 'service_unavailable';
-        detectorStatus(room, false, reason);
-      }
+    } catch (_error) {
+      // Score processing failures do not count as detector-service failures.
     } finally {
       room.detection.inFlight[modality] = false;
     }

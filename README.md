@@ -42,6 +42,8 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 
 Mac/Linux activation and environment commands are in [ml-service/README.md](ml-service/README.md). Open <http://127.0.0.1:8000/docs> to view the Python API. Set `DETECTOR_BACKEND=mock` for the default mock mode, and set the Node `ML_SERVICE_URL` to the Python service URL if it differs from the default.
 
+`ML_TIMEOUT_MS` sets how long Node waits for each Python detector request; it defaults to 5000 milliseconds.
+
 Once a customer video is connected, use **Start analysis** in the verifier room. The verifier's browser captures frames and short audio windows from the remote stream and sends them only to this Node server over Socket.IO. The Node server stores numeric scores and reason text, never the media. Mock results are illustrative and are not real detection.
 
 ## Camera checks and liveness challenges

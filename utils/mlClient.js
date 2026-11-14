@@ -1,5 +1,6 @@
 const ML_SERVICE_URL = (process.env.ML_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
-const REQUEST_TIMEOUT_MS = 2500;
+const configuredTimeout = Number(process.env.ML_TIMEOUT_MS);
+const REQUEST_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 5000;
 
 async function postMedia(path, buffer, filename, contentType) {
   if (!Buffer.isBuffer(buffer)) throw new TypeError('Media payload must be a Buffer.');
@@ -19,6 +20,7 @@ async function postMedia(path, buffer, filename, contentType) {
     if (!response.ok) {
       const error = new Error(`Detector service returned HTTP ${response.status}.`);
       error.code = 'service_unavailable';
+      error.httpStatus = response.status;
       throw error;
     }
 
@@ -30,6 +32,7 @@ async function postMedia(path, buffer, filename, contentType) {
     ) {
       const error = new Error('Detector service returned an invalid response.');
       error.code = 'invalid_response';
+      error.failureType = 'connection';
       throw error;
     }
     return result;
@@ -37,9 +40,11 @@ async function postMedia(path, buffer, filename, contentType) {
     if (error.name === 'AbortError') {
       const timeoutError = new Error('Detector request timed out.');
       timeoutError.code = 'timeout';
+      timeoutError.failureType = 'timeout';
       throw timeoutError;
     }
     if (!error.code) error.code = 'service_unavailable';
+    if (!error.failureType) error.failureType = error.httpStatus ? `HTTP ${error.httpStatus}` : 'connection';
     throw error;
   } finally {
     clearTimeout(timeoutId);

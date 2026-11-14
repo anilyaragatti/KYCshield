@@ -12,6 +12,9 @@ const riskLabel = document.querySelector('#risk-label');
 const reasonsList = document.querySelector('#reasons-list');
 const modeChip = document.querySelector('#mode-chip');
 const detectorChip = document.querySelector('#detector-chip');
+let lastDetectorStatus = null;
+detectorChip.textContent = 'Waiting for detector';
+detectorChip.classList.remove('detector-online', 'detector-offline');
 const cameraFlag = document.querySelector('#camera-flag');
 const challengeButton = document.querySelector('#challenge-btn');
 const challengeStatus = document.querySelector('#challenge-status');
@@ -187,7 +190,7 @@ function updateGauge(risk, label) {
   riskGaugeArc.style.strokeDashoffset = String(arcLength * (1 - fill));
   riskGaugeArc.setAttribute('class', `risk-gauge-arc ${String(label || '').toLowerCase()}`);
   const labels = { Low: 'LOW RISK', Medium: 'MEDIUM RISK', High: 'HIGH RISK' };
-  riskLabel.textContent = percent === null ? 'Waiting for data' : (labels[label] || 'Waiting for data');
+  riskLabel.textContent = labels[label] || 'Waiting for data';
 }
 
 function resetDetectionDisplay() {
@@ -254,12 +257,24 @@ socket.on('score-update', (update) => {
   }
 });
 
+function renderDetectorStatus(status) {
+  const online = Boolean(status?.ok);
+  detectorChip.textContent = online ? 'Detector online' : 'Detector offline';
+  detectorChip.classList.toggle('detector-online', online);
+  detectorChip.classList.toggle('detector-offline', !online);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && lastDetectorStatus) {
+    renderDetectorStatus(lastDetectorStatus);
+  }
+});
+
 socket.on('detector-status', (status) => {
   try {
+    lastDetectorStatus = status;
+    renderDetectorStatus(status);
     const online = Boolean(status?.ok);
-    detectorChip.textContent = online ? 'Detector online' : 'Detector offline';
-    detectorChip.classList.toggle('detector-online', online);
-    detectorChip.classList.toggle('detector-offline', !online);
     if (!online) callMessage.textContent = 'Detector unavailable; the video call is still active.';
     else if (status && status.ok) callMessage.textContent = 'Call connected.';
   } catch (_error) {
